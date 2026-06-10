@@ -8,11 +8,12 @@ const mqttSettings = {
 
 const state = {
   mode: "auto",
-  temperature: 27.4,
-  humidity: 58,
+  temperature: null,
+  humidity: null,
   threshold: 28,
   fanOn: false,
   mqttClient: null,
+  hasSensorData: false,
 };
 
 const elements = {
@@ -47,7 +48,7 @@ function publishFanCommand() {
 }
 
 function updateFanByMode() {
-  if (state.mode === "auto") {
+  if (state.mode === "auto" && Number.isFinite(state.temperature)) {
     state.fanOn = state.temperature >= state.threshold;
   }
 }
@@ -55,8 +56,8 @@ function updateFanByMode() {
 function render() {
   updateFanByMode();
 
-  elements.temperatureValue.textContent = state.temperature.toFixed(1);
-  elements.humidityValue.textContent = Math.round(state.humidity).toString();
+  elements.temperatureValue.textContent = Number.isFinite(state.temperature) ? state.temperature.toFixed(1) : "--";
+  elements.humidityValue.textContent = Number.isFinite(state.humidity) ? Math.round(state.humidity).toString() : "--";
   elements.thresholdValue.textContent = state.threshold.toString();
   elements.fanStatus.textContent = state.fanOn ? "ON" : "OFF";
   elements.fanStatus.classList.toggle("on", state.fanOn);
@@ -66,9 +67,13 @@ function render() {
   elements.updatedAt.textContent = new Date().toLocaleTimeString("zh-TW", { hour12: false });
   elements.topicText.textContent = mqttSettings.sensorTopic;
 
-  const isHot = state.temperature >= state.threshold;
+  const isHot = Number.isFinite(state.temperature) && state.temperature >= state.threshold;
   elements.temperatureCard.classList.toggle("hot", isHot);
-  elements.temperatureNote.textContent = isHot ? "溫度過高，啟動降溫" : "舒適範圍";
+  elements.temperatureNote.textContent = state.hasSensorData
+    ? isHot
+      ? "溫度過高，啟動降溫"
+      : "舒適範圍"
+    : "等待 MQTT 資料";
 
   elements.modeButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.mode === state.mode);
@@ -90,20 +95,37 @@ function setMode(mode) {
 function handleSensorPayload(payload) {
   try {
     const data = JSON.parse(payload);
+    const previousFanState = state.fanOn;
+
     if (Number.isFinite(Number(data.temperature))) {
       state.temperature = Number(data.temperature);
+      state.hasSensorData = true;
     }
     if (Number.isFinite(Number(data.humidity))) {
       state.humidity = Number(data.humidity);
+      state.hasSensorData = true;
+    }
+    if (typeof data.fan === "string") {
+      state.fanOn = data.fan.toUpperCase() === "ON";
     }
     render();
+
+    if (state.mode === "auto" && previousFanState !== state.fanOn) {
+      publishFanCommand();
+    }
   } catch {
     console.warn("MQTT payload is not valid JSON:", payload);
   }
 }
 
 function connectMqtt() {
-  if (!mqttSettings.enabled || !window.mqtt) {
+  if (!mqttSettings.enabled) {
+    elements.connectionState.querySelector("span:last-child").textContent = "MQTT 未啟用";
+    return;
+  }
+
+  if (!window.mqtt) {
+    elements.connectionState.querySelector("span:last-child").textContent = "MQTT 函式庫未載入";
     return;
   }
 
@@ -120,6 +142,7 @@ function connectMqtt() {
     elements.connectionState.classList.add("connected");
     elements.connectionState.querySelector("span:last-child").textContent = "MQTT 已連線";
     client.subscribe(mqttSettings.sensorTopic);
+    publishFanCommand();
   });
 
   client.on("message", (_topic, message) => {
@@ -130,20 +153,11 @@ function connectMqtt() {
     elements.connectionState.classList.remove("connected");
     elements.connectionState.querySelector("span:last-child").textContent = "MQTT 離線";
   });
-}
 
-function startDemoData() {
-  setInterval(() => {
-    if (state.mqttClient?.connected) {
-      return;
-    }
-
-    const nextTemperature = state.temperature + (Math.random() - 0.44) * 0.45;
-    const nextHumidity = state.humidity + (Math.random() - 0.5) * 2;
-    state.temperature = Math.min(33, Math.max(24, nextTemperature));
-    state.humidity = Math.min(82, Math.max(42, nextHumidity));
-    render();
-  }, 3500);
+  client.on("error", () => {
+    elements.connectionState.classList.remove("connected");
+    elements.connectionState.querySelector("span:last-child").textContent = "MQTT 連線錯誤";
+  });
 }
 
 elements.thresholdSlider.addEventListener("input", (event) => {
@@ -173,5 +187,4 @@ if ("serviceWorker" in navigator) {
 }
 
 connectMqtt();
-startDemoData();
 render();

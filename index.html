@@ -22,7 +22,7 @@
         </div>
         <div class="connection-pill" id="connectionState">
           <span class="dot" aria-hidden="true"></span>
-          <span>模擬資料</span>
+          <span>MQTT 連線中</span>
         </div>
       </section>
 
@@ -34,8 +34,8 @@
             </span>
             <span>溫度</span>
           </div>
-          <div class="metric-value"><span id="temperatureValue">27.4</span><small>°C</small></div>
-          <div class="metric-note" id="temperatureNote">舒適範圍</div>
+          <div class="metric-value"><span id="temperatureValue">--</span><small>°C</small></div>
+          <div class="metric-note" id="temperatureNote">等待 MQTT 資料</div>
         </article>
 
         <article class="metric-card humidity-card">
@@ -45,7 +45,7 @@
             </span>
             <span>濕度</span>
           </div>
-          <div class="metric-value"><span id="humidityValue">58</span><small>%</small></div>
+          <div class="metric-value"><span id="humidityValue">--</span><small>%</small></div>
           <div class="metric-note">DHT11 感測</div>
         </article>
       </section>

@@ -1,4 +1,4 @@
-const CACHE_NAME = "pet-iot-dashboard-v1";
+const CACHE_NAME = "pet-iot-dashboard-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
