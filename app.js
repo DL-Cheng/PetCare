@@ -1,5 +1,5 @@
 const mqttSettings = {
-  enabled: false,
+  enabled: true,
   brokerUrl: "wss://broker.emqx.io:8084/mqtt",
   sensorTopic: "petbox/sensor",
   commandTopic: "petbox/fan/set",
